@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="smartQueueApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartQueue</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+    <style>
+        :root { --blue:#2860ed; --dark:#202938; --pale:#eef5ff; --green:#dcfce7; --greenText:#166534; --border:#dce2eb; }
+        * { box-sizing:border-box; }
+        body { margin:0; font-family:Arial, Helvetica, sans-serif; color:var(--dark); background:#f4f7fb; }
+        header { background:#fff; box-shadow:0 2px 12px #00000012; position:sticky; top:0; z-index:5; }
+        .nav { max-width:1120px; margin:auto; padding:14px 22px; display:flex; justify-content:space-between; align-items:center; gap:18px; flex-wrap:wrap; }
+        .brand { font-size:30px; font-weight:800; color:var(--blue); }
+        nav { display:flex; gap:10px; flex-wrap:wrap; }
+        nav button { border:0; background:transparent; color:#374151; font-size:17px; font-weight:700; padding:10px 13px; cursor:pointer; border-radius:8px; }
+        nav button:hover, nav button.active { color:var(--blue); background:#eef4ff; }
+        main { max-width:1120px; margin:30px auto; padding:0 20px 45px; }
+        .hero { background:linear-gradient(135deg,#eaf2ff,#fff); border-radius:22px; padding:46px 24px; text-align:center; }
+        h1 { font-size:clamp(30px,5vw,48px); margin:0 0 16px; }
+        h2 { margin-top:0; }
+        .hero p { font-size:20px; line-height:1.5; max-width:720px; margin:0 auto 25px; }
+        .button { border:0; border-radius:10px; padding:14px 20px; background:var(--blue); color:#fff; font-size:17px; font-weight:700; cursor:pointer; }
+        .button:hover { filter:brightness(.95); }
+        .button:disabled { opacity:.6; cursor:not-allowed; }
+        .panel { background:#fff; border-radius:18px; padding:28px; box-shadow:0 8px 25px #15284a0b; margin-bottom:22px; }
+        .form-panel { max-width:780px; margin:0 auto; }
+        label { display:block; font-size:18px; font-weight:700; margin:17px 0 8px; }
+        input, select { width:100%; padding:15px; font-size:17px; border:1px solid #cbd5e1; border-radius:10px; background:#fff; }
+        .full { width:100%; margin-top:24px; }
+        .token-card { background:var(--pale); border-radius:22px; padding:28px; text-align:center; }
+        .token-number { color:var(--blue); font-size:clamp(54px,9vw,90px); font-weight:800; margin:18px 0; }
+        .details { font-size:20px; line-height:1.45; }
+        .stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; margin:24px 0; }
+        .stat { background:#fff; border-radius:15px; padding:22px 12px; text-align:center; }
+        .stat strong { display:block; color:var(--blue); font-size:clamp(24px,4vw,38px); margin-bottom:8px; overflow-wrap:anywhere; }
+        .stat span { color:#64748b; font-size:17px; }
+        .progress-track { height:14px; background:#e5e7eb; border-radius:20px; overflow:hidden; margin:10px 0 22px; }
+        .progress-fill { height:100%; background:var(--blue); transition:width .25s; }
+        .notice { background:var(--green); color:var(--greenText); padding:18px; text-align:center; border-radius:12px; font-weight:700; font-size:18px; margin-top:20px; }
+        .admin-title { text-align:center; margin:0 0 28px; }
+        .admin-stats .stat { border:1px solid var(--border); background:#f8fafc; padding:28px 12px; }
+        .search { margin:22px 0; }
+        .table-wrap { overflow-x:auto; }
+        table { width:100%; border-collapse:collapse; background:#fff; min-width:610px; }
+        th { background:var(--blue); color:#fff; text-align:left; padding:17px 14px; font-size:17px; }
+        td { padding:17px 14px; border-bottom:1px solid var(--border); font-size:17px; }
+        .status { font-weight:700; }
+        .status-waiting { color:#d97706; }
+        .status-serving { color:#15803d; }
+        .status-completed { color:#64748b; }
+        .small-button { border:0; border-radius:8px; padding:10px 15px; background:var(--blue); color:#fff; font-size:15px; cursor:pointer; }
+        .admin-actions { display:flex; justify-content:center; gap:12px; flex-wrap:wrap; margin:22px 0 0; }
+        .muted { color:#64748b; }
+        .error { color:#b91c1c; background:#fee2e2; padding:12px; border-radius:8px; margin-top:15px; }
+        [ng-cloak] { display:none !important; }
+        @media (max-width:650px) {
+            .nav { justify-content:center; }
+            .brand { width:100%; text-align:center; }
+            nav { justify-content:center; }
+            nav button { font-size:15px; padding:8px; }
+            main { margin-top:18px; padding:0 12px 30px; }
+            .panel { padding:18px; }
+            .stats { gap:9px; }
+            .stat { padding:17px 7px; }
+            .stat span { font-size:14px; }
+        }
+    </style>
+</head>
+<body ng-controller="QueueController" ng-cloak>
+<header>
+    <div class="nav">
+        <div class="brand">SmartQueue</div>
+        <nav>
+            <button ng-class="{active: page === 'home'}" ng-click="showPage('home')">Home</button>
+            <button ng-class="{active: page === 'join'}" ng-click="showPage('join')">Join Queue</button>
+            <button ng-class="{active: page === 'token'}" ng-click="showPage('token')">My Token</button>
+            <button ng-class="{active: page === 'admin'}" ng-click="showPage('admin'); refreshQueue()">Admin</button>
+        </nav>
+    </div>
+</header>
+
+<main>
+    <section ng-show="page === 'home'" class="hero">
+        <h1>Skip the long queue with SmartQueue</h1>
+        <p>Join a bank queue digitally, receive your token, and check your waiting position without standing in a crowded line.</p>
+        <button class="button" ng-click="showPage('join')">Get Started</button>
+    </section>
+
+    <section ng-show="page === 'join'" class="panel form-panel">
+        <h1 style="text-align:center">Join the Queue</h1>
+        <p class="muted" style="text-align:center">Enter your details to get a digital token.</p>
+        <form ng-submit="joinQueue()" name="queueForm" novalidate>
+            <label for="customerName">Your Name</label>
+            <input id="customerName" type="text" ng-model="user.name" placeholder="Enter your name" required>
+            <label for="location">Select Location</label>
+            <select id="location" ng-model="user.location" ng-options="location for location in locations" required>
+                <option value="">Choose a bank branch</option>
+            </select>
+            <label for="service">Select Service</label>
+            <select id="service" ng-model="user.service" ng-options="service for service in services" required>
+                <option value="">Choose a service</option>
+            </select>
+            <button class="button full" type="submit" ng-disabled="queueForm.$invalid || submitting">
+                {{submitting ? 'Please wait...' : '🎟 Get Digital Token'}}
+            </button>
+        </form>
+        <div class="error" ng-if="errorMessage">{{errorMessage}}</div>
+    </section>
+
+    <section ng-show="page === 'token'" class="panel">
+        <div ng-if="hasToken" class="token-card">
+            <h2>Your Digital Token</h2>
+            <div class="token-number">{{user.token}}</div>
+            <div class="details">Hello {{user.name}}!<br>{{user.location}}<br>Service: {{user.service}}</div>
+            <div class="stats">
+                <div class="stat"><strong>{{user.position}}</strong><span>People Ahead</span></div>
+                <div class="stat"><strong>{{user.waitTime}} min</strong><span>Estimated Wait</span></div>
+                <div class="stat"><strong>{{user.status || 'Waiting'}}</strong><span>Current Status</span></div>
+            </div>
+            <div style="font-size:18px">Queue Progress</div>
+            <div class="progress-track"><div class="progress-fill" ng-style="{width: progress + '%'}"></div></div>
+            <div class="notice">🔔 We will notify you when your turn is near.</div>
+            <button class="button" style="margin-top:20px" ng-click="refreshQueue()">Refresh My Status</button>
+        </div>
+        <div ng-if="!hasToken" style="text-align:center;padding:35px 10px">
+            <h2>You don't have a token yet.</h2>
+            <p>Join the queue to receive your digital token.</p>
+            <button class="button" ng-click="showPage('join')">Join Queue</button>
+        </div>
+        <div class="error" ng-if="errorMessage">{{errorMessage}}</div>
+    </section>
+
+    <section ng-show="page === 'admin'">
+        <h1 class="admin-title">👨‍💼 Admin Dashboard</h1>
+        <div class="stats admin-stats">
+            <div class="stat"><strong>{{queue.length}}</strong><span>Total Queue</span></div>
+            <div class="stat"><strong>{{currentToken || '—'}}</strong><span>Current Token</span></div>
+            <div class="stat"><strong>3</strong><span>Active Counters</span></div>
+        </div>
+        <input class="search" type="text" ng-model="searchText" placeholder="🔎 Search token or name...">
+        <div class="panel table-wrap" style="padding:0">
+            <table>
+                <thead>
+                    <tr><th>Token</th><th>Name</th><th>Service</th><th>Status</th><th>Action</th></tr>
+                </thead>
+                <tbody>
+                    <tr ng-repeat="person in queue | filter:searchText track by person._id">
+                        <td>{{person.token}}</td>
+                        <td>{{person.name}}</td>
+                        <td>{{person.service}}</td>
+                        <td><span class="status"
+                            ng-class="{'status-serving': person.status === 'Serving', 'status-waiting': person.status === 'Waiting', 'status-completed': person.status === 'Completed'}">{{person.status}}</span></td>
+                        <td><button class="small-button" ng-click="callPerson(person)" ng-disabled="person.status === 'Completed'">{{person.status === 'Serving' ? 'Serving' : (person.status === 'Completed' ? 'Done' : 'Call')}}</button></td>
+                    </tr>
+                    <tr ng-if="queue.length === 0"><td colspan="5" style="text-align:center;padding:28px">No people in the queue. Join the queue to create a token.</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="admin-actions">
+            <button class="button" ng-click="callNext()" ng-disabled="busy">📢 CALL NEXT PERSON</button>
+            <button class="button" style="background:#475569" ng-click="refreshQueue()" ng-disabled="busy">↻ Refresh Queue</button>
+        </div>
+        <div class="notice" ng-if="adminMessage">{{adminMessage}}</div>
+        <div class="error" ng-if="errorMessage">{{errorMessage}}</div>
+    </section>
+</main>
+
+<script>
+angular.module("smartQueueApp", [])
+.controller("QueueController", function($scope, $timeout) {
+    const API = "http://localhost:3000/api/queue";
+
+    $scope.page = "home";
+    $scope.locations = [" Hyderabad Branch", "Bengaluru Branch", "Chennai Branch", "Vijayawada Branch"];
+    $scope.services = ["Cash Deposit", "Cash Withdrawal", "Account Opening", "Passbook Update", "Customer Support"];
+    $scope.user = { name: "", location: "", service: "", token: "", position: 0, waitTime: 0, status: "Waiting" };
+    $scope.queue = [];
+    $scope.currentToken = "";
+    $scope.hasToken = false;
+    $scope.progress = 10;
+    $scope.searchText = "";
+    $scope.submitting = false;
+    $scope.busy = false;
+    $scope.adminMessage = "";
+    $scope.errorMessage = "";
+
+    $scope.showPage = function(page) {
+        $scope.page = page;
+        $scope.errorMessage = "";
+        if (page === "admin") $scope.refreshQueue();
+    };
+
+    $scope.refreshQueue = async function() {
+        try {
+            $scope.errorMessage = "";
+            const response = await fetch(API);
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || "Could not load queue");
+            $scope.$applyAsync(function() {
+                $scope.queue = data;
+                const serving = data.find(person => person.status === "Serving");
+                $scope.currentToken = serving ? serving.token : "";
+                if ($scope.hasToken) {
+                    const mine = data.find(person => person.token === $scope.user.token);
+                    if (mine) {
+                        $scope.user.status = mine.status;
+                        const waitingBeforeMe = data.filter(person =>
+                            person.status === "Waiting" &&
+                            person.createdAt < mine.createdAt
+                        ).length;
+                        $scope.user.position = mine.status === "Waiting" ? waitingBeforeMe : 0;
+                        $scope.user.waitTime = $scope.user.position * 3;
+                        $scope.progress = mine.status === "Completed" ? 100 :
+                            (mine.status === "Serving" ? 70 : Math.max(10, 70 - $scope.user.position * 10));
+                    }
+                }
+            });
+        } catch (error) {
+            $scope.$applyAsync(function() {
+                $scope.errorMessage = "Could not load queue. Check that the backend is running. " + error.message;
+            });
+        }
+    };
+
+    $scope.joinQueue = async function() {
+        try {
+            $scope.submitting = true;
+            $scope.errorMessage = "";
+            const response = await fetch(API, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: $scope.user.name,
+                    location: $scope.user.location,
+                    service: $scope.user.service
+                })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || "Could not create token");
+            $scope.$applyAsync(function() {
+                $scope.user.token = data.token;
+                $scope.user.position = data.peopleAhead || 0;
+                $scope.user.waitTime = data.estimatedWait || 0;
+                $scope.user.status = data.status || "Waiting";
+                $scope.hasToken = true;
+                $scope.progress = 10;
+                $scope.page = "token";
+                $scope.queue.push(data);
+            });
+            await $scope.refreshQueue();
+        } catch (error) {
+            $scope.$applyAsync(function() {
+                $scope.errorMessage = "Could not create token. " + error.message;
+            });
+        } finally {
+            $scope.$applyAsync(function() { $scope.submitting = false; });
+        }
+    };
+
+    $scope.callNext = async function() {
+        try {
+            $scope.busy = true;
+            $scope.errorMessage = "";
+            const response = await fetch(API + "/next", { method: "POST" });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || "Could not call next customer");
+            $scope.$applyAsync(function() { $scope.adminMessage = data.message || "Queue updated"; });
+            await $scope.refreshQueue();
+        } catch (error) {
+            $scope.$applyAsync(function() { $scope.errorMessage = "Could not call next customer. " + error.message; });
+        } finally {
+            $scope.$applyAsync(function() { $scope.busy = false; });
+        }
+    };
+
+    $scope.callPerson = async function(person) {
+        if (person.status === "Serving") {
+            $scope.adminMessage = person.token + " is already being served.";
+            return;
+        }
+        if (person.status === "Completed") return;
+        $scope.adminMessage = "Calling the next person in arrival order. Use CALL NEXT PERSON to update the queue.";
+        await $scope.callNext();
+    };
+
+    $scope.refreshQueue();
+});
+</script>
+</body>
+</html>
